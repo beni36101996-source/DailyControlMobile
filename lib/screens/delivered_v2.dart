@@ -178,7 +178,7 @@ class _DeliveredViewState extends State<DeliveredView> {
           Row(children: [
             Expanded(child: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: AppColors.navy))),
-            Container(minWidth: 63, alignment: Alignment.center, padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            Container(constraints: const BoxConstraints(minWidth: 63), alignment: Alignment.center, padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(color: achColor, borderRadius: BorderRadius.circular(3)),
               child: Text(off ? (r.offLabel.isEmpty ? 'LIBUR' : r.offLabel) : '${r.achievement.toStringAsFixed(1)}%',
                 style: TextStyle(fontSize: off ? 9.5 : 10, fontWeight: FontWeight.w900,
