@@ -5,6 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/app_theme.dart';
 import '../core/demo_data.dart';
 import '../widgets/ui.dart';
+import 'delivered_v2.dart';
+import 'productivity_v2.dart';
+import 'trip_v2.dart';
+import 'holiday_v2.dart';
 
 enum DetailKind { pretrip, aging, rekap, delivered, productivity, trip, dailyActive, target, holiday, whatsapp }
 
@@ -180,91 +184,6 @@ class _RecapViewState extends State<RecapView> {
 
 Widget _tiny(String label, String value, Color color) => Column(children: [Text(label, style: const TextStyle(color: AppColors.muted, fontSize: 10)), const SizedBox(height: 3), Text(value, style: TextStyle(fontWeight: FontWeight.w900, color: color))]);
 
-class DeliveredView extends StatefulWidget {const DeliveredView({super.key}); @override State<DeliveredView> createState() => _DeliveredViewState();}
-class _DeliveredViewState extends State<DeliveredView> {
-  String period = 'DELIVERED 9 - 15';
-  String date = '13 Nov 2026';
-  String search = '';
-  @override
-  Widget build(BuildContext context) {
-    final list = DailyControlDemo.riders.where((e) => e.name.toLowerCase().contains(search.toLowerCase())).toList();
-    return ListView(padding: const EdgeInsets.all(14), children: [
-      const DemoNotice(), const SizedBox(height: 12),
-      Panel(child: Column(children: [
-        DropdownButtonFormField<String>(initialValue: period, isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Periode Delivered'),
-          items: ['DELIVERED 9 - 15', 'DELIVERED 2 - 8', 'DELIVERED 19 - 25', 'DELIVERED 26 - 1'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => period = v!)),
-        const SizedBox(height: 9),
-        DropdownButtonFormField<String>(initialValue: date,
-          decoration: const InputDecoration(labelText: 'Tanggal'),
-          items: ['13 Nov 2026', '12 Nov 2026', '11 Nov 2026'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-          onChanged: (v) => setState(() => date = v!)),
-        const SizedBox(height: 6),
-        const Text('Nilai masih contoh. Pilihan periode/tanggal akan terhubung ke sheet DELIVERED terkait saat API aktif.', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-      ])), const SizedBox(height: 12),
-      const Row(children: [Expanded(child: StatCard('Assigned', '2.252')), SizedBox(width: 7), Expanded(child: StatCard('Delivered', '2.023', tint: AppColors.green)), SizedBox(width: 7), Expanded(child: StatCard('OnHold', '229', tint: AppColors.orange))]),
-      const SizedBox(height: 12),
-      const PageSectionTitle('Angka per Rider', icon: Icons.people_alt_outlined), const SizedBox(height: 8),
-      TextField(decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Cari nama rider'), onChanged: (v) => setState(() => search = v)),
-      const SizedBox(height: 12),
-      for (final rider in list) ...[
-        Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(rider.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.ink)),
-          const SizedBox(height: 12),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            _tiny('Assigned', '${rider.assigned}', AppColors.blue),
-            _tiny('Delivered', '${rider.delivered}', AppColors.green),
-            _tiny('OnHold', '${rider.onHold}', AppColors.orange),
-            _tiny('%', '${(rider.assigned == 0 ? 0 : rider.delivered / rider.assigned * 100).toStringAsFixed(1)}%', AppColors.navy),
-            _tiny('Target', '${rider.target}', AppColors.purple),
-          ]),
-          const Divider(height: 18),
-          Row(children: [const Text('Pencapaian target', style: TextStyle(fontSize: 12)), const Spacer(), Pill('${rider.achievement.toStringAsFixed(1)}%', color: rider.achievement >= 100 ? AppColors.green : AppColors.red)]),
-        ])), const SizedBox(height: 8),
-      ],
-    ]);
-  }
-}
-
-class ProductivityView extends StatelessWidget {const ProductivityView({super.key});
-  @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 12),
-    const Panel(child: Row(children: [Icon(Icons.calendar_month, color: AppColors.blue), SizedBox(width: 8), Text('Oktober 2026', style: TextStyle(fontWeight: FontWeight.w800)), Spacer(), Pill('Target 952', color: AppColors.orange)])), const SizedBox(height: 12),
-    const Row(children: [Expanded(child: StatCard('Actual LM Inbound','27.858')), SizedBox(width: 7), Expanded(child: StatCard('Actual LM Outbound','32.983',tint: AppColors.green))]),
-    const SizedBox(height: 8),
-    const Row(children: [Expanded(child: StatCard('Operator Masuk','3',tint: AppColors.purple)), SizedBox(width: 7), Expanded(child: StatCard('Productivity','1.168,33',tint: AppColors.green))]),
-    const SizedBox(height: 12),
-    const PageSectionTitle('Produktivitas Harian', icon: Icons.show_chart), const SizedBox(height: 8),
-    Panel(child: Column(children: [
-      for (final e in [('31 Okt','1.168,33',.82),('01 Nov','724,67',.51),('02 Nov','1.196,33',.86),('03 Nov','872,33',.62),('04 Nov','800,67',.56),('05 Nov','1.093,33',.78)]) ...[
-        Row(children: [SizedBox(width: 61, child: Text(e.$1, style: const TextStyle(fontSize: 12))), Expanded(child: LinearProgressIndicator(value: e.$3, minHeight: 11, borderRadius: BorderRadius.circular(4))), const SizedBox(width: 8), Text(e.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))]), const SizedBox(height: 13),
-      ],
-      const Divider(), const Text('Gap ke target, saldo gap, forecast outbound & rekomendasi H+1 akan ditarik dari Productivity OPR.', style: TextStyle(fontSize: 11, color: AppColors.muted)),
-    ])),
-  ]);
-}
-
-class TripView extends StatelessWidget {const TripView({super.key});
-  @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 12),
-    const Row(children: [Expanded(child: StatCard('Total Inbound','3.211')), SizedBox(width: 8), Expanded(child: StatCard('Trip','3', tint: AppColors.orange))]), const SizedBox(height: 12),
-    const PageSectionTitle('New LH Trip — 11 Nov 2026',icon: Icons.local_shipping_outlined), const SizedBox(height: 9),
-    for (final t in [
-      ('Slot 1','LT0QB31PIRVV1','04:16','B9280NCJ','1.439'),
-      ('Slot 2','LT0QB31PW4001','08:21','BM8592AU','888'),
-      ('Slot 3','—','—','—','—'),
-    ]) ...[
-      Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [Pill(t.$1,color: AppColors.orange), const Spacer(), Text('Inbound: ${t.$5}', style: const TextStyle(fontWeight: FontWeight.w800))]),
-        const SizedBox(height: 9), Text('Trip ID: ${t.$2}', style: const TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4), const Text('Batang Gansal Hub → Kemuning Riau Hub', style: TextStyle(fontSize: 12,color: AppColors.muted)),
-        const SizedBox(height: 4), Text('Actual Arrival: ${t.$3}   •   Kendaraan: ${t.$4}', style: const TextStyle(fontSize: 12)),
-      ])), const SizedBox(height: 8),
-    ],
-  ]);
-}
-
 class DailyActiveView extends StatelessWidget {const DailyActiveView({super.key});
   @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
     const DemoNotice(), const SizedBox(height: 12),
@@ -295,26 +214,6 @@ class TargetView extends StatelessWidget {const TargetView({super.key});
       Panel(child: Column(children: [for (final row in [('Senin','550','767','+217'),('Selasa','550','498','-52'),('Rabu','440','470','+30'),('Kamis','550','452','-98')])
         Padding(padding: const EdgeInsets.symmetric(vertical: 8),child: Row(children: [Expanded(child: Text(row.$1,style:const TextStyle(fontSize:12))),Expanded(child: Text('Target ${row.$2}',style:const TextStyle(fontSize:11))),Expanded(child: Text('Actual ${row.$3}',style:const TextStyle(fontSize:11))),Pill(row.$4,color:row.$4.startsWith('-')?AppColors.red:AppColors.green)]))])),
       const SizedBox(height: 14),
-    ],
-  ]);
-}
-
-class HolidayView extends StatelessWidget {const HolidayView({super.key});
-  @override Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 12),
-    const Panel(child: Row(children: [Icon(Icons.calendar_month,color: AppColors.blue), SizedBox(width: 8),Text('Jadwal Libur Mingguan',style: TextStyle(fontWeight:FontWeight.w800))])),
-    const SizedBox(height: 12),
-    for (final e in [
-      ('Senin','HAMDANI PULUNGAN, ARIFFAN SURI PURBA, RIZKI'),
-      ('Selasa','BINTANG S, RIDHO AGUSTIAN, FIQI ARIANTO'),
-      ('Rabu','ISWAHYUDI, MUHAMMAD THORIQ LUBIS, TRI IRWAN'),
-      ('Kamis','RENDI SAPUTRA, NEDI SAFITRI, RISKI ABDUR ROHIM'),
-      ('Jumat','ISMAIL, MUHAMMAD REZA, PRAMUJA'),
-      ('Sabtu','BAHRUL AYSRORI, M. SYAWALUDIN PRATAMA'),
-      ('Minggu','DIKI HERMANSYAH, PAJAR ANUGRAH'),
-    ]) ...[
-      Panel(child: Row(children: [SizedBox(width: 70,child: Text(e.$1,style:const TextStyle(fontWeight:FontWeight.w800,color:AppColors.blue))),const SizedBox(width:9),Expanded(child:Text(e.$2,style:const TextStyle(fontSize:12)))])),
-      const SizedBox(height: 7),
     ],
   ]);
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../core/demo_data.dart';
 import '../widgets/ui.dart';
+import '../widgets/sync_notice.dart';
+import '../core/control_store.dart';
 import 'details.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -12,11 +14,16 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  final Set<int> checked = {0, 1, 2, 3, 4, 5};
+  final store = DailyControlStore.instance;
+  @override
+  void initState() {super.initState(); store.addListener(_refresh);}
+  void _refresh() {if (mounted) setState(() {});}
+  @override
+  void dispose() {store.removeListener(_refresh); super.dispose();}
   void open(DetailKind kind) => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(kind: kind)));
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 14),
+    const SyncNotice(), const SizedBox(height: 9),
     const PageSectionTitle('Kinerja & Akses Cepat', icon: Icons.speed), const SizedBox(height: 10),
     const Row(children: [
       Expanded(child: StatCard('FIFO', '95,69%', icon: Icons.check_circle_outline, tint: AppColors.green)),
@@ -40,19 +47,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ])),
       Pill('53,65%', color: AppColors.orange),
     ])), const SizedBox(height: 15),
-    PageSectionTitle('Daily Task', icon: Icons.fact_check_outlined, action: Text('${checked.length}/14', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.blue))),
+    PageSectionTitle('Daily Task', icon: Icons.fact_check_outlined, action: Text('${store.checkedTasks.length}/14', style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.blue))),
     const SizedBox(height: 8),
     Panel(child: Column(children: [
-      LinearProgressIndicator(value: checked.length / 14, minHeight: 9, borderRadius: BorderRadius.circular(9)),
+      LinearProgressIndicator(value: store.checkedTasks.length / 14, minHeight: 9, borderRadius: BorderRadius.circular(9)),
       const SizedBox(height: 8),
-      const Text('Checklist hanya simulasi lokal; tidak mengubah Dashboard Spreadsheet.', style: TextStyle(fontSize: 11, color: AppColors.muted)),
+      const Text('Checklist bisa ditandai di HP. Tanpa API, perubahan BELUM masuk Spreadsheet.', style: TextStyle(fontSize: 11, color: AppColors.muted)),
       for (int i = 0; i < DailyControlDemo.weeklyTasks.length; i++)
         CheckboxListTile(
           dense: true, contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
           title: Text(DailyControlDemo.weeklyTasks[i], style: const TextStyle(fontSize: 12)),
-          value: checked.contains(i),
-          onChanged: (v) => setState(() => v == true ? checked.add(i) : checked.remove(i)),
+          value: store.checkedTasks.contains(i + 1),
+          onChanged: (v) async {
+              try {
+                await store.setTask(i + 1, v == true);
+                if (context.mounted) showFeedback(context, store.isLive ? 'Checklist tersinkron.' : 'Checklist tersimpan di HP (belum ke Sheets).');
+              } catch (e) {if (context.mounted) showFeedback(context, 'Gagal menyimpan checklist: $e');}
+            },
         ),
     ])), const SizedBox(height: 16),
     PageSectionTitle('Pre-Trip Pagi', icon: Icons.verified_user_outlined,

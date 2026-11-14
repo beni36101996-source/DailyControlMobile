@@ -27,6 +27,19 @@ class DailyControlApi {
   static Future<Map<String, dynamic>> action(String path, Map<String, dynamic> body) =>
       _post('/v1/actions/$path', body);
 
+  static Future<Map<String, dynamic>> get(String path, Map<String, String> query) async {
+    if (!isReady) throw StateError('API dan login belum dikonfigurasi.');
+    final url = Uri.parse('$baseUrl$path').replace(queryParameters: query);
+    if (url.scheme != 'https') throw StateError('API wajib menggunakan HTTPS.');
+    final response = await http.get(url, headers: {'authorization': 'Bearer $accessToken'})
+      .timeout(const Duration(seconds: 30));
+    final decoded = jsonDecode(response.body);
+    if (decoded is! Map<String, dynamic> || response.statusCode < 200 || response.statusCode >= 300 || decoded['ok'] != true) {
+      throw StateError('API baca gagal (HTTP ${response.statusCode}).');
+    }
+    return decoded;
+  }
+
   static Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
     if (!isReady) {
       throw StateError('Belum terhubung. Backend API aman dan login belum disiapkan. Tidak ada data Spreadsheet yang berubah.');

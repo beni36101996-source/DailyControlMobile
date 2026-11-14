@@ -47,10 +47,7 @@ jobs:
       - name: Analyze widget tests
         run: flutter analyze --no-fatal-infos --no-fatal-warnings test
 
-      - name: Run widget tests (diagnostic for V1 prototype)
-        # Temporary V1 measure: collect test failures, but still attempt APK build.
-        # WARNING: this is not a fix for the failing UI tests.
-        continue-on-error: true
+      - name: Run unit tests
         run: flutter test --reporter expanded
 
       - name: Build Android APK
@@ -59,6 +56,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: DailyControlMobile-V1-APK
+          name: DailyControlMobile-V2-APK
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'core/app_theme.dart';
 import 'screens/shell.dart';
+import 'core/control_store.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await DailyControlStore.instance.initialize();
   runApp(const DailyControlMobile());
 }
 

@@ -1,75 +1,33 @@
-# Daily Control Hub Mobile — V1 Android
+# Daily Control Mobile V2 — Revisi 14 November 2026
 
-Ini **proyek kode Flutter aplikasi Android**, bukan AppSheet/WebView. Layout dan navigasi merupakan prototipe pertama sesuai fungsi Daily Control Kemuning Riau Hub.
+Ini **source Flutter V2**, bukan APK langsung. Proyek melanjutkan V1 yang sudah berhasil dibuild melalui GitHub Actions.
 
-## Status yang harus dipahami
+## Revisi yang sudah masuk
 
-- ✅ **Tersedia di kode:** Dashboard, checklist demo, Pre-Trip, 3 pilihan file upload di HP, validasi dasar CSV, Aging Paket, Rekap Order, Set Delivered per rider, Productivity, Daily Active, Monitoring Target, Jadwal Libur, LH Trip, WhatsApp filter & copy, menu operasional.
-- ✅ **File picker:** Memilih CSV untuk Harian/Order, CSV atau Excel untuk Backlog; menampilkan pratinjau nama file dan jumlah baris CSV perkiraan.
-- ❗ **Belum tersambung:** Login, backend API, sinkronisasi data live Google Sheets, penulisan real upload, penghapusan, dan trigger bisnis. Semua angka dashboard saat ini **DEMO**, bukan data nyata.
-- 🔒 **Aman untuk testing:** Tanpa API, tombol proses dan aksi admin tidak melakukan perubahan terhadap Spreadsheet; tidak ada klaim upload berhasil palsu.
-- ⚙️ **Build APK:** Perlu Flutter + Android SDK (tidak terpasang di lingkungan pembuatan ini); bisa dilakukan pada komputer atau GitHub Actions.
+1. **Jadwal Libur Rider**: semua rider sesuai contoh spreadsheet; warna dan legenda Driver Dedicated (ungu), Rider Plus (toska), Rider Dedicated (kuning). Tap nama untuk edit hari/nama/kategori; tambah/hapus rider; tambah/edit/hapus catatan cuti.
+2. **Set Delivered**: daftar **26 nama rider contoh** dalam baris padat; Assigned, Delivered, On Hold, %, Target, Pencapaian; warna grup rider dan pencapaian, teks LIBUR/SALAH LIBUR; pencarian, filter kategori, pilihan periode/tanggal. Data referensi yang ditampilkan hanya contoh 13 Nov 2026.
+3. **Dashboard Daily Task**: checklist 14 tugas bisa diubah, progres langsung terhitung, status tersimpan di HP.
+4. **Productivity OPR**: pilih bulan; tap tanggal untuk mengisi Actual LM Inbound, Operator Masuk, Actual LM Outbound; produktivitas, gap dan persentase dihitung otomatis; dapat mengubah target.
+5. **New LH Trip**: pilih tanggal dan edit Slot 1–3. Form mencakup ID, estimasi/jadwal/actual, status, Order, Pack, nomor kendaraan, tipe kendaraan dan driver.
+6. **Penyimpanan V2**: input lokal tersimpan antarsesi di HP (`shared_preferences`). Tampil pemberitahuan ringkas agar tidak disalahartikan sudah sinkron ke Google Sheets.
+7. Menu V1 lain seperti Upload Harian/Order/Backlog, Aging Paket, Rekap Order, WhatsApp, Daily Active dan Monitoring Target tetap dipertahankan dalam source.
 
-## Membuat aplikasi Android pertama kali
+## PENTING: Belum sinkron dengan Spreadsheet!
 
-1. Install **Flutter stable** dan **Android Studio** (Android SDK tersedia).
-2. Ekstrak proyek ini ke folder `DailyControlMobile_V1`.
-3. Buka terminal pada folder tersebut, lalu jalankan:
+Aplikasi **tidak otomatis menulis data ke Google Sheets**. Belum ada server API dan autentikasi. UI hanya mengizinkan edit data lokal untuk uji pengalaman pengguna. Semua angka awal adalah contoh dari screenshot, bukan monitoring live. Kontrak API dan aturan keamanan lihat `docs/CONTRAK_SYNC_V2.md`. Mengubah checkbox di HP belum mengubah checkbox spreadsheet sampai API tersambung.
 
-   ```bash
-   flutter doctor
-   flutter create --platforms=android --org com.kemuninghub .
-   flutter pub get
-   flutter run
-   ```
+## Pasang pembaruan lewat GitHub Desktop (Windows)
 
-4. Saat siap membuat file APK untuk diinstal:
+1. Download ZIP V2 dan klik kanan → **Extract All**.
+2. Di folder hasil ekstrak, pilih isi folder: `.github`, `docs`, `lib`, `test`, `pubspec.yaml`, `analysis_options.yaml`, `README.md` (jangan salin ZIP ke GitHub).
+3. Tekan **Ctrl+C**.
+4. GitHub Desktop → pilih repository `DailyControlMobile` → **Repository → Show in Explorer**.
+5. Di jendela repository yang terbuka, **Ctrl+V**, pilih **Replace** bila diminta. Jangan menghapus folder `.git`.
+6. Kembali ke GitHub Desktop. Centang hanya file source di `lib`, `test`, `.github`, dokumen dan `pubspec.yaml`, **jangan** centang file `.idea`.
+7. Summary `Daily Control Mobile V2 - revisi tampilan dan form harian` → **Commit to main** → **Push origin**.
+8. Buka GitHub → Actions → Build APK Daily Control Mobile. Jika hijau, klik run → Artifacts → `DailyControlMobile-V2-APK` → unduh ZIP → ekstrak `app-release.apk`.
+9. Instal APK pada HP yang sama. Versi APK diperbarui menjadi `0.2.0+2` agar perubahan dikenali. Bila tanda tangan APK rilis berubah antar-build dan Android menolak upgrade, backup data lokal penting sebelum uninstall (uninstall biasanya menghapus data lokal) lalu pasang versi baru.
 
-   ```bash
-   flutter build apk --release
-   ```
+## Status validasi
 
-5. File APK hasil build ada di `build/app/outputs/flutter-apk/app-release.apk`.
-
-**Alternatif tanpa memasang Flutter lokal:** upload isi proyek ke repository GitHub milik sendiri, buka tab **Actions → Build APK Daily Control Mobile → Run workflow**, kemudian unduh artifact APK dari run tersebut. Workflow berada di `.github/workflows/build_android_apk.yml`. Ini membutuhkan akun GitHub serta proses build yang berhasil di layanan GitHub.
-
-## Navigasi aplikasi
-
-| Tab | Isi |
-|---|---|
-| Home | FIFO, SameDay Delivered, link operasional, Live Standardization, 14 Daily Task, Pre-Trip Rider/Driver |
-| Upload | Upload Harian, Order, Backlog, mode sheet baru/ada dan pratinjau file |
-| Laporan | Rekap Order, Aging Paket, Set Delivered (periode/tanggal/per rider), Productivity OPR, New LH Trip |
-| Rider | Pre-Trip, Daily Active, Monitoring Target Rider, Jadwal Libur Rider |
-| Menu | Update Delivered manual, baseline Backlog, Refresh Aging, WhatsApp, Delete Sheet khusus admin |
-
-## Prinsip penting yang dipertahankan
-
-- Upload Data Harian **tidak** memanggil Update Delivered.
-- Nama rider dan Assigned/Delivered/OnHold/Target/Pencapaian terlihat langsung di Set Delivered.
-- File Backlog di hari yang sama harus diubah menjadi snapshot dengan logika V12 di **backend**, bukan diam-diam diasumsikan dari data contoh pada HP.
-- No. resi aging dapat disalin; WA membentuk nama rider lalu resi satu baris per nomor, dengan multi-select rider & account.
-- WA tidak mengirim otomatis ke grup dan tidak melakukan mention otomatis.
-- Semua data contoh hanya untuk layout/testing; jangan digunakan mengambil keputusan operasional.
-
-## Struktur kode
-
-- `lib/main.dart` — entry point
-- `lib/screens/shell.dart` — navigasi 5 tab
-- `lib/screens/dashboard.dart` — Dashboard dan Pre-Trip shortcut
-- `lib/screens/upload.dart` — pemilihan file, validasi pratinjau, upload handler
-- `lib/screens/monitoring.dart` — menu laporan
-- `lib/screens/details.dart` — konten rinci laporan dan WhatsApp
-- `lib/screens/rider.dart` — rider control
-- `lib/screens/tools.dart` — menu aksi operasional
-- `lib/core/api_service.dart` — kontrak API (tidak aktif sebelum login aman)
-- `lib/core/demo_data.dart` — contoh data untuk pengujian UI
-- `docs/INTEGRASI_API.md` — rencana integrasi yang tidak merusak Daily Control
-
-## Apa yang perlu dibuat pada V2
-
-1. Backend API terautentikasi (Cloud Run/serupa), tanpa memasukkan secret Spreadsheet di APK.
-2. Login admin/operator dan kontrol hak akses per tindakan.
-3. Baca data nyata (API read-only), baru uji upload di salinan Spreadsheet.
-4. Implementasi benar Upload Harian, Update Delivered manual, Backlog V12 + snapshot WIB, Refresh Aging, dan event audit.
-5. Setelah lolos uji, arahkan API ke file operasional utama dengan backup dan rollback.
+Pemeriksaan struktur folder, dependensi dan keseimbangan sintaks berhasil. **Belum menjalankan Flutter SDK/Android build di lingkungan penyusunan ini.** Keberhasilan kompilasi harus dikonfirmasi dari GitHub Actions. Workflow V2 memakai pemeriksaan kode sumber dan unit-test model, serta build APK.
