@@ -97,13 +97,15 @@ class DailyControlStore extends ChangeNotifier {
   static final DailyControlStore instance = DailyControlStore._();
   SharedPreferences? _prefs;
   bool initialized = false;
-  final Set<int> checkedTasks = {1, 2, 3, 4, 5, 6};
+  final Set<int> checkedTasks = {};
+  List<String> liveTaskLabels = const [];
+  bool tasksFromServer = false;
   List<HolidayAssignment> holidays = _seedHolidays();
   List<HolidayNote> notes = [HolidayNote(id: 1, name: 'ALFARIDZI FATURRAHMAN', start: '2026-10-25', end: '2026-11-01', reason: 'Cuti')];
   Map<String, ProductivityDay> productivity = _seedProductivity();
   Map<String, TripSlot> trips = _seedTrips();
   double dailyProductivityTarget = 952;
-  String get syncLabel => DailyControlApi.isReady ? 'Server terhubung: perubahan menunggu konfirmasi API' : 'Mode lokal: tersimpan di HP, BELUM masuk Google Sheets';
+  String get syncLabel => DailyControlApi.isReady ? (DailyControlApi.canWrite ? 'Koneksi LIVE: data dari Spreadsheet' : 'Koneksi LIVE baca saja') : 'Belum terhubung ke Spreadsheet';
   bool get isLive => DailyControlApi.isReady;
 
   Future<void> initialize() async {
@@ -141,67 +143,210 @@ class DailyControlStore extends ChangeNotifier {
   }
 
   Future<void> _write(String key, Object value) async {
+    // Data LIVE tidak disalin ke SharedPreferences (plaintext).
+    notifyListeners();
+  }
+
+  Future<void> clearLegacyDemo() async {
     _prefs ??= await SharedPreferences.getInstance();
-    await _prefs!.setString(key, jsonEncode(value));
+    for (final key in ['dc_v2_tasks','dc_v2_holidays','dc_v2_notes',
+      'dc_v2_productivity','dc_v2_target','dc_v2_trips']) {
+      await _prefs!.remove(key);
+    }
+    checkedTasks.clear(); tasksFromServer = false; liveTaskLabels = const [];
+    holidays = []; notes = []; productivity = {}; trips = {};
     notifyListeners();
   }
 
   /// When API is connected, require server confirmation *before* changing UI state.
   Future<void> _serverWrite(String endpoint, Map<String, dynamic> payload) async {
-    if (isLive) await DailyControlApi.action(endpoint, payload);
+    if (!isLive) throw StateError('Belum terhubung. Data tidak disimpan ke Spreadsheet.');
+    await DailyControlApi.action(endpoint, payload);
+  }
+
+  /// Always refresh server-owned daily tasks before showing an editable live checklist.
+  /// Do not overwrite locally selected demo tasks when no authenticated API exists.
+  Future<void> refreshTasks() async {
+    if (!isLive) return;
+    final response = await DailyControlApi.get('/v1/dashboard/tasks', {});
+    final values = response['checkedTaskIds'];
+    if (values is! List) throw const FormatException('Server must return checkedTaskIds.');
+    final ids = <int>{};
+    for (final v in values) {
+      if (v is! num || v.toInt() < 1 || v.toInt() > 14) {
+        throw const FormatException('Invalid task ID from server.');
+      }
+      ids.add(v.toInt());
+    }
+    if (response['tasks'] is List) {
+      liveTaskLabels = [for (final task in response['tasks'] as List) (task as Map)['name'].toString()];
+    }
+    tasksFromServer = true;
+    checkedTasks..clear()..addAll(ids);
+    notifyListeners();
   }
 
   Future<void> setTask(int id, bool checked) async {
     await _serverWrite('daily-task', {'taskId': id, 'completed': checked});
     if (checked) { checkedTasks.add(id); } else { checkedTasks.remove(id); }
-    await _write('dc_v2_tasks', checkedTasks.toList()..sort());
+    notifyListeners();
   }
 
-  Future<void> putHoliday(HolidayAssignment item) async {
-    await _serverWrite('holiday-assignment', item.toJson());
+  Future<void> putHoliday(HolidayAssignment item, {HolidayAssignment? previous}) async {
+    await _serverWrite('holiday-upsert', {...item.toJson(), 'category': item.type.label, 'oldName': previous?.name ?? '', 'oldDay': previous?.day ?? ''});
     holidays.removeWhere((x) => x.id == item.id);
     holidays.add(item);
-    await _write('dc_v2_holidays', holidays.map((x) => x.toJson()).toList());
+    await refreshHolidays();
   }
 
   Future<void> removeHoliday(HolidayAssignment item) async {
-    await _serverWrite('holiday-assignment-delete', item.toJson());
+    await _serverWrite('holiday-delete', item.toJson());
     holidays.removeWhere((x) => x.id == item.id);
-    await _write('dc_v2_holidays', holidays.map((x) => x.toJson()).toList());
+    await refreshHolidays();
   }
 
   Future<void> putNote(HolidayNote item) async {
-    await _serverWrite('holiday-note', item.toJson());
+    await _serverWrite('holiday-note-save', {...item.toJson(), if (item.id >= 10 && item.id <= 25) 'rowNumber': item.id});
     notes.removeWhere((x) => x.id == item.id);
     notes.add(item);
-    await _write('dc_v2_notes', notes.map((x) => x.toJson()).toList());
+    await refreshHolidays();
   }
 
   Future<void> removeNote(HolidayNote item) async {
-    await _serverWrite('holiday-note-delete', item.toJson());
+    await _serverWrite('holiday-note-delete', {...item.toJson(), if (item.id >= 10 && item.id <= 25) 'rowNumber': item.id});
     notes.removeWhere((x) => x.id == item.id);
-    await _write('dc_v2_notes', notes.map((x) => x.toJson()).toList());
+    await refreshHolidays();
   }
 
   Future<void> putProductivity(ProductivityDay day) async {
     await _serverWrite('productivity-day', day.toJson());
     productivity[day.date] = day;
-    await _write('dc_v2_productivity', productivity.values.map((x) => x.toJson()).toList());
+    await refreshProductivity();
   }
 
   Future<void> setProductivityTarget(double target) async {
-    await _serverWrite('productivity-target', {'target': target});
+    await _serverWrite('productivity-target-save', {'target': target.round()});
     dailyProductivityTarget = target;
-    _prefs ??= await SharedPreferences.getInstance();
-    await _prefs!.setDouble('dc_v2_target', target);
-    notifyListeners();
+    await refreshProductivity();
   }
 
   Future<void> putTrip(TripSlot trip) async {
     await _serverWrite('lh-trip', trip.toJson());
     trips['${trip.date}_${trip.slot}'] = trip;
-    await _write('dc_v2_trips', trips.values.map((x) => x.toJson()).toList());
+    await refreshTrips();
   }
+
+  static int? _parseInt(String v) {
+    final clean = v.replaceAll(',', '').replaceAll('.', '').trim();
+    return clean.isEmpty ? null : int.tryParse(clean);
+  }
+
+  static String? _parseSheetDate(String raw) {
+    final text = raw.trim();
+    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) return text;
+    final slash = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$').firstMatch(text);
+    if (slash != null) {
+      final month = int.parse(slash[1]!);
+      final day = int.parse(slash[2]!);
+      final year = int.parse(slash[3]!);
+      return dcDateKey(DateTime(year, month, day));
+    }
+    final english = RegExp(r'^(\d{1,2})[\s-]+([A-Za-z]{3})[\s-]+(\d{4})$').firstMatch(text);
+    if (english != null) {
+      const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+      final index = months.indexOf(english[2]!.toLowerCase());
+      if (index >= 0) return dcDateKey(DateTime(int.parse(english[3]!), index + 1, int.parse(english[1]!)));
+    }
+    return null;
+  }
+
+  /// Baca ulang sumber spreadsheet; hanya data yang berhasil dibaca ditampilkan
+  /// sebagai LIVE. Jangan campur data contoh ketika server telah aktif.
+  Future<void> refreshProductivity() async {
+    if (!isLive) return;
+    final response = await DailyControlApi.get('/v1/productivity', {});
+    final result = <String, ProductivityDay>{};
+    for (final raw in (response['rows'] as List? ?? const [])) {
+      final row = (raw as List).map((x) => x?.toString() ?? '').toList();
+      if (row.length < 4) continue;
+      final date = _parseSheetDate(row[0]);
+      if (date == null) continue;
+      result[date] = ProductivityDay(date: date, inbound: _parseInt(row[1]),
+        operators: _parseInt(row[2]), outbound: _parseInt(row[3]));
+    }
+    final target = double.tryParse((response['target'] ?? '').toString().replaceAll(',', ''));
+    if (target != null && target > 0) dailyProductivityTarget = target;
+    productivity = result;
+    notifyListeners();
+  }
+
+  Future<void> refreshTrips() async {
+    if (!isLive) return;
+    final response = await DailyControlApi.get('/v1/lh-trip', {});
+    final result = <String, TripSlot>{};
+    String? date;
+    for (final raw in (response['rows'] as List? ?? const [])) {
+      final row = (raw as List).map((x) => x?.toString() ?? '').toList();
+      if (row.length < 15) continue;
+      date = _parseSheetDate(row[0]) ?? date;
+      final match = RegExp(r'Slot\s*([123])', caseSensitive: false).firstMatch(row[1]);
+      if (date == null || match == null) continue;
+      final slot = int.parse(match[1]!);
+      result['${date}_$slot'] = TripSlot(date: date, slot: slot,
+        tripId: row[2], estimateArrival: row[3], departureStation: row[4],
+        nextStation: row[5], scheduleDeparture: row[6], actualDeparture: row[7],
+        actualArrival: row[8], status: row[9], orderCount: row[10], packCount: row[11],
+        vehicle: row[12], vehicleGroup: row[13], driver: row[14]);
+    }
+    trips = result;
+    notifyListeners();
+  }
+
+  Future<void> refreshHolidays() async {
+    if (!isLive) return;
+    final response = await DailyControlApi.get('/v1/holiday', {});
+    final grid = (response['grid'] as List? ?? const []);
+    final backgrounds = (response['colors'] as List? ?? const []);
+    final legends = (response['legend'] as List? ?? const []).map((e) => '$e').toList();
+    final legendColors = (response['legendColors'] as List? ?? const []).map((e) => '$e').toList();
+    final assignments = <HolidayAssignment>[];
+    for (var r = 0; r < grid.length && r < 4; r++) {
+      final row = (grid[r] as List);
+      for (var c = 0; c < row.length && c < 7; c++) {
+        final name = (row[c] ?? '').toString().trim();
+        if (name.isEmpty) continue;
+        final color = r < backgrounds.length && c < (backgrounds[r] as List).length
+          ? '${(backgrounds[r] as List)[c]}'.toLowerCase() : '';
+        final i = legendColors.indexWhere((v) => v.toLowerCase() == color);
+        final legend = i >= 0 && i < legends.length ? legends[i] : '';
+        final type = RiderType.values.firstWhere((x) => x.label == legend,
+          orElse: () => RiderType.riderDedicated);
+        assignments.add(HolidayAssignment(id: 1 + c * 4 + r, day: dcWeekdays[c], name: name, type: type));
+      }
+    }
+    final notesSource = response['notes'] as List? ?? const [];
+    final freshNotes = <HolidayNote>[];
+    for (var i = 0; i < notesSource.length; i++) {
+      final line = (notesSource[i] as List).map((x) => (x ?? '').toString()).toList();
+      if (line.isEmpty || line[0].trim().isEmpty) continue;
+      freshNotes.add(HolidayNote(id: i + 10, name: line[0],
+        start: line.length > 1 ? (_parseSheetDate(line[1]) ?? line[1]) : '',
+        end: line.length > 2 ? (_parseSheetDate(line[2]) ?? line[2]) : '',
+        reason: line.length > 3 ? line[3] : ''));
+    }
+    holidays = assignments;
+    notes = freshNotes;
+    notifyListeners();
+  }
+
+  Future<void> refreshAllLive() async {
+    if (!isLive) return;
+    await refreshTasks();
+    await refreshProductivity();
+    await refreshTrips();
+    await refreshHolidays();
+  }
+
 }
 
 List<HolidayAssignment> _seedHolidays() {

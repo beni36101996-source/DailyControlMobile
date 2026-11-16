@@ -5,6 +5,7 @@ import 'upload.dart';
 import 'monitoring.dart';
 import 'rider.dart';
 import 'tools.dart';
+import 'connection.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -30,7 +31,7 @@ class _MainShellState extends State<MainShell> {
           Text('Daily Control Hub', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
           Text('Kemuning Riau Hub', style: TextStyle(color: Color(0xFFC1D7F2), fontSize: 12, fontWeight: FontWeight.w500)),
         ]),
-        actions: [IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notifikasi aktif setelah backend terhubung.')))), const SizedBox(width: 6)],
+        actions: [IconButton(tooltip: 'Koneksi LIVE', icon: const Icon(Icons.settings_ethernet), onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ConnectionScreen()))), const SizedBox(width: 6)],
       ),
       body: IndexedStack(index: index, children: screens),
       bottomNavigationBar: NavigationBar(

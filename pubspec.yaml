@@ -1,7 +1,7 @@
 name: daily_control_mobile
-description: Aplikasi Android Daily Control Kemuning Riau Hub — V2 - editable local preview.
+description: Aplikasi Android Daily Control Kemuning Riau Hub — V2 - compact operational layout, local edits + API contract.
 publish_to: none
-version: 0.2.0+2
+version: 1.0.0+10
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -14,6 +14,8 @@ dependencies:
   url_launcher: ^6.3.1
   http: ^1.3.0
   shared_preferences: ^2.5.3
+  flutter_secure_storage: ^9.2.4
+  excel: ^4.0.6
 
 dev_dependencies:
   flutter_test:

@@ -13,6 +13,7 @@ class _TripViewState extends State<TripView> {
   final store = DailyControlStore.instance;
   DateTime date = DateTime.now();
   bool saving = false;
+  @override void initState() { super.initState(); if (store.isLive) store.refreshTrips(); }
   String get key => dcDateKey(date);
 
   Future<void> _pickDate() async {

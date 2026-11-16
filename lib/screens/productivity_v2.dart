@@ -16,6 +16,7 @@ class _ProductivityViewState extends State<ProductivityView> {
   DateTime month = DateTime(2026, 11);
   static const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   bool saving = false;
+  @override void initState() { super.initState(); if (store.isLive) store.refreshProductivity(); }
   String get monthName => '${months[month.month - 1]} ${month.year}';
 
   Future<void> _editTarget() async {

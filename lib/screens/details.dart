@@ -9,6 +9,8 @@ import 'delivered_v2.dart';
 import 'productivity_v2.dart';
 import 'trip_v2.dart';
 import 'holiday_v2.dart';
+import 'rider_tables_v21.dart';
+import 'live_sheet.dart';
 
 enum DetailKind { pretrip, aging, rekap, delivered, productivity, trip, dailyActive, target, holiday, whatsapp }
 
@@ -34,14 +36,14 @@ class DetailScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(kind.title)),
     body: switch(kind) {
-      DetailKind.pretrip => const PreTripView(),
-      DetailKind.aging => const AgingView(),
-      DetailKind.rekap => const RecapView(),
+      DetailKind.pretrip => const LiveSheetView(path: '/v1/pretrip', title: 'Pre-Trip Rider'),
+      DetailKind.aging => const LiveSheetView(path: '/v1/aging', title: 'Aging Paket'),
+      DetailKind.rekap => const LiveSheetView(path: '/v1/recap-order', title: 'Rekap Order'),
       DetailKind.delivered => const DeliveredView(),
       DetailKind.productivity => const ProductivityView(),
       DetailKind.trip => const TripView(),
-      DetailKind.dailyActive => const DailyActiveView(),
-      DetailKind.target => const TargetView(),
+      DetailKind.dailyActive => const RiderTableV21(isTarget: false),
+      DetailKind.target => const RiderTableV21(isTarget: true),
       DetailKind.holiday => const HolidayView(),
       DetailKind.whatsapp => const WhatsappView(),
     },

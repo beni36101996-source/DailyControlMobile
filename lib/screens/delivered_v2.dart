@@ -14,7 +14,7 @@ class DeliveryRow {
   double get rate => assigned == 0 ? 0 : delivered / assigned * 100;
   double get achievement => target == 0 ? 0 : delivered / target * 100;
   factory DeliveryRow.fromApi(Map<String, dynamic> x) {
-    int numVal(Object? o) => o is num ? o.toInt() : int.tryParse('$o') ?? 0;
+    int numVal(Object? o) => o is num ? o.toInt() : int.tryParse('$o'.replaceAll(',', '')) ?? 0;
     final group = RiderType.values.firstWhere((v) => v.name == '${x['group']}', orElse: () => RiderType.riderDedicated);
     return DeliveryRow('${x['riderName'] ?? x['name'] ?? ''}', numVal(x['assigned']), numVal(x['delivered']),
       numVal(x['onHold'] ?? x['hold']), numVal(x['target']), group, offLabel: '${x['offLabel'] ?? ''}');
@@ -59,17 +59,33 @@ class DeliveredView extends StatefulWidget {
 
 class _DeliveredViewState extends State<DeliveredView> {
   String period = 'DELIVERED 9 - 15';
-  DateTime date = DateTime(2026, 11, 13);
+  DateTime date = DateTime.now();
   final TextEditingController searchCtrl = TextEditingController();
   RiderType? filter;
   bool loading = false;
   List<DeliveryRow>? remoteRows;
   String? loadError;
-  final periods = const ['DELIVERED 2 - 8', 'DELIVERED 9 - 15', 'DELIVERED 12 - 18',
-    'DELIVERED 19 - 25', 'DELIVERED 26 - 1', 'DELIVERED 5 - 11'];
+  List<String> periods = ['DELIVERED 9 - 15'];
 
   @override
-  void initState() {super.initState(); if (DailyControlApi.isReady) _load();}
+  void initState() {super.initState(); if (DailyControlApi.isReady) _loadPeriods();}
+
+  Future<void> _loadPeriods() async {
+    setState(() {loading = true; loadError = null;});
+    try {
+      final response = await DailyControlApi.get('/v1/delivered/periods', const {});
+      final result = (response['periods'] as List).map((x) => x.toString()).toList();
+      if (result.isEmpty) throw StateError('Tidak ada sheet DELIVERED.');
+      final monday = date.subtract(Duration(days: date.weekday - 1));
+      final sunday = monday.add(const Duration(days: 6));
+      final expected = 'DELIVERED ${monday.day} - ${sunday.day}';
+      final selected = result.contains(expected) ? expected :
+        result.contains(period) ? period : result.first;
+      if (mounted) setState(() {periods = result; period = selected;});
+      await _load();
+    } catch (error) {if (mounted) setState(() => loadError = '$error');}
+    finally {if (mounted) setState(() => loading = false);}
+  }
   @override
   void dispose() {searchCtrl.dispose(); super.dispose();}
 

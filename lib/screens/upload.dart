@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../core/api_service.dart';
+import '../widgets/sync_notice.dart';
 import '../widgets/ui.dart';
 
 enum UploadKind { harian, order, backlog }
@@ -18,13 +19,15 @@ class UploadScreen extends StatefulWidget {
 class _UploadScreenState extends State<UploadScreen> {
   UploadKind selected = UploadKind.harian;
   String mode = 'baru';
-  final sheetController = TextEditingController(text: '14 november');
+  final sheetController = TextEditingController();
   String? fileName;
   Uint8List? fileBytes;
   String? info;
   List<String> headers = [];
   int? estimatedRows;
   bool uploading = false;
+  bool checkingJobs = false;
+  List<Map<String,dynamic>> jobs = [];
 
   String get label => switch (selected) {
     UploadKind.harian => 'Upload Data Harian',
@@ -37,7 +40,7 @@ class _UploadScreenState extends State<UploadScreen> {
 
   Future<void> pick() async {
     try {
-      final allowed = selected == UploadKind.backlog ? <String>['xlsx', 'xls', 'csv'] : <String>['csv'];
+      final allowed = selected == UploadKind.backlog ? <String>['xlsx', 'csv'] : <String>['csv'];
       final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: allowed, withData: true);
       if (result == null || result.files.isEmpty) return;
       final picked = result.files.single;
@@ -75,10 +78,10 @@ class _UploadScreenState extends State<UploadScreen> {
   Future<void> upload() async {
     if (fileBytes == null || fileName == null) { showFeedback(context, 'Pilih file terlebih dahulu.'); return; }
     if (selected == UploadKind.harian && sheetController.text.trim().isEmpty) { showFeedback(context, 'Isi nama sheet harian.'); return; }
-    if (!DailyControlApi.isReady) {
+    if (!DailyControlApi.canUpload) {
       await showDialog<void>(context: context, builder: (context) => AlertDialog(
-        title: const Text('Pratinjau sudah siap'),
-        content: const Text('File sudah berhasil dipilih di HP. Namun APK V1 ini masih mode demo: API aman dan login belum terhubung, sehingga file BELUM dikirim ke Daily Control. Kami tidak akan menampilkan status berhasil palsu.'),
+        title: const Text('Upload belum diizinkan'),
+        content: const Text('File sudah dipilih. Namun koneksi belum diverifikasi atau izin upload server belum diaktifkan. Spreadsheet BELUM berubah. Buka menu Koneksi LIVE.'),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Mengerti'))],
       ));
       return;
@@ -86,7 +89,12 @@ class _UploadScreenState extends State<UploadScreen> {
     setState(() => uploading = true);
     try {
       final res = await DailyControlApi.upload(kind: selected.name, fileName: fileName!, bytes: fileBytes!, sheetName: selected == UploadKind.harian ? sheetController.text.trim() : null, mode: selected == UploadKind.harian ? mode : null);
-      if (mounted) showFeedback(context, res['message']?.toString() ?? 'Server menyatakan proses berhasil.');
+      if (mounted) {
+        showFeedback(context, res['jobId'] != null
+          ? 'Masuk antrean: ${res['jobId']}. Belum selesai; cek status di bawah.'
+          : (res['message']?.toString() ?? 'Proses diterima server.'));
+        await refreshJobs();
+      }
     } catch (e) {
       if (mounted) showFeedback(context, 'Upload tidak berhasil: $e');
     } finally {
@@ -94,9 +102,22 @@ class _UploadScreenState extends State<UploadScreen> {
     }
   }
 
+  Future<void> refreshJobs() async {
+    if (!DailyControlApi.isReady || checkingJobs) return;
+    setState(() => checkingJobs = true);
+    try {
+      final fresh = await DailyControlApi.latestJobs();
+      if (mounted) setState(() => jobs = fresh);
+    } catch (e) {
+      if (mounted) showFeedback(context, 'Status antrean belum terbaca: $e');
+    } finally {
+      if (mounted) setState(() => checkingJobs = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 14),
+    const SyncNotice(), const SizedBox(height: 14),
     const PageSectionTitle('Upload & Tools', icon: Icons.cloud_upload_outlined),
     const SizedBox(height: 10),
     Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -141,12 +162,33 @@ class _UploadScreenState extends State<UploadScreen> {
       FilledButton.icon(onPressed: uploading ? null : upload, icon: const Icon(Icons.cloud_upload), label: Text(uploading ? 'Memproses...' : 'Upload & Proses'),
         style: FilledButton.styleFrom(padding: const EdgeInsets.all(14))),
       const SizedBox(height: 8),
-      const Text('Tombol tidak akan mengubah Spreadsheet sebelum backend dan autentikasi dikonfigurasi.', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+      const Text('Upload hanya dianggap berhasil jika server mengonfirmasi. Upload Harian tidak menjalankan Update Delivered otomatis.', style: TextStyle(color: AppColors.muted, fontSize: 11)),
+    ])),
+    const SizedBox(height: 12),
+    Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Expanded(child: Text('Status Upload / Pekerjaan', style: TextStyle(fontWeight: FontWeight.w800))),
+        IconButton(onPressed: checkingJobs || !DailyControlApi.isReady ? null : refreshJobs,
+          icon: const Icon(Icons.refresh), tooltip: 'Ambil status terbaru'),
+      ]),
+      if (checkingJobs) const LinearProgressIndicator(),
+      if (jobs.isEmpty) const Text('Tekan refresh untuk melihat antrean dan hasil proses dari server.',
+        style: TextStyle(fontSize: 11)),
+      for (final job in jobs) Padding(padding: const EdgeInsets.symmetric(vertical: 5), child:
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(job['status'] == 'DONE' ? Icons.check_circle :
+            job['status'] == 'ERROR' ? Icons.error : Icons.schedule,
+            size: 17, color: job['status'] == 'DONE' ? Colors.green :
+              job['status'] == 'ERROR' ? Colors.red : Colors.orange),
+          const SizedBox(width: 6),
+          Expanded(child: Text('${job['action']} • ${job['status']} • ${job['note'] ?? ''}',
+            style: const TextStyle(fontSize: 11))),
+        ])),
     ])),
     const SizedBox(height: 12),
     Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const Text('Status Integrasi', style: TextStyle(fontWeight: FontWeight.w800)), const SizedBox(height: 8),
-      Row(children: [Icon(DailyControlApi.isReady ? Icons.check_circle : Icons.info_outline, color: DailyControlApi.isReady ? AppColors.green : AppColors.orange), const SizedBox(width: 8), Expanded(child: Text(DailyControlApi.isReady ? 'Backend tersedia' : 'Mode demo — upload live belum aktif'))]),
+      Row(children: [Icon(DailyControlApi.isReady ? Icons.check_circle : Icons.info_outline, color: DailyControlApi.isReady ? AppColors.green : AppColors.orange), const SizedBox(width: 8), Expanded(child: Text(DailyControlApi.isReady ? 'Backend tersedia' : 'Upload live belum diaktifkan server'))]),
     ])), const SizedBox(height: 20),
   ]);
 }

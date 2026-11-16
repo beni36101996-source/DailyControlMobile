@@ -7,7 +7,7 @@ class RiderScreen extends StatelessWidget {
   void _open(BuildContext context, DetailKind kind) => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(kind: kind)));
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 14),
+    const SizedBox(height: 8),
     const PageSectionTitle('Rider Control', icon: Icons.groups_outlined), const SizedBox(height: 12),
     QuickItem(title: 'Pre-Trip Rider & Driver', subtitle: 'Siapa Fit dan siapa belum mengisi', icon: Icons.verified_user_outlined, onTap: () => _open(context, DetailKind.pretrip)),
     const SizedBox(height: 9),

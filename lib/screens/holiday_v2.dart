@@ -19,6 +19,7 @@ class HolidayView extends StatefulWidget {
 class _HolidayViewState extends State<HolidayView> {
   final store = DailyControlStore.instance;
   bool saving = false;
+  @override void initState() { super.initState(); if (store.isLive) store.refreshHolidays(); }
 
   Future<void> _editHoliday([HolidayAssignment? original]) async {
     final name = TextEditingController(text: original?.name ?? '');
@@ -59,7 +60,7 @@ class _HolidayViewState extends State<HolidayView> {
       } else if (result == true && selectedName.isNotEmpty) {
         await store.putHoliday(HolidayAssignment(
           id: original?.id ?? DateTime.now().microsecondsSinceEpoch,
-          day: day, name: selectedName, type: type));
+          day: day, name: selectedName, type: type), previous: original);
       }
       if (mounted) showFeedback(context, store.isLive ? 'Perubahan dikonfirmasi server.' : 'Tersimpan di HP. Spreadsheet belum berubah.');
     } catch (e) { if (mounted) showFeedback(context, 'Gagal menyimpan: $e'); }

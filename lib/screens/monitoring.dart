@@ -7,7 +7,7 @@ class MonitoringScreen extends StatelessWidget {
   void _open(BuildContext context, DetailKind kind) => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(kind: kind)));
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
-    const DemoNotice(), const SizedBox(height: 14),
+    const SizedBox(height: 8),
     const PageSectionTitle('Monitoring Operasional', icon: Icons.analytics_outlined), const SizedBox(height: 12),
     QuickItem(title: 'Rekap Order', subtitle: 'Delivered, Delivering, OnHold, % Delivered & per jam', icon: Icons.local_shipping_outlined, onTap: () => _open(context, DetailKind.rekap)),
     const SizedBox(height: 9),

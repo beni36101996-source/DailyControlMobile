@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/control_store.dart';
+import '../core/api_service.dart';
 
 class SyncNotice extends StatelessWidget {
   const SyncNotice({super.key, this.compact = true});
@@ -20,8 +21,8 @@ class SyncNotice extends StatelessWidget {
           size: 17, color: connected ? const Color(0xFF137548) : const Color(0xFF805916)),
         const SizedBox(width: 7),
         Expanded(child: Text(connected
-          ? 'API aktif • perubahan hanya dianggap sukses setelah respons server.'
-          : 'MODE LOKAL • Bisa diedit di HP, belum tersinkron ke Spreadsheet.',
+          ? (DailyControlApi.canWrite ? 'TERHUBUNG • data LIVE • penulisan wajib dikonfirmasi server.' : 'TERHUBUNG • BACA SAJA • penulisan ke spreadsheet masih dikunci.')
+          : 'BELUM TERHUBUNG • data di layar tertentu mungkin contoh; buka Koneksi LIVE.',
           style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600))),
       ]),
     );
