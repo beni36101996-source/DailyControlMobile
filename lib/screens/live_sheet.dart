@@ -82,7 +82,7 @@ class _LiveSheetViewState extends State<LiveSheetView> {
                   border: Border.all(color: const Color(0xFFE0E6ED),width: .5)),
                 child: Text(c<filtered[r].length ? filtered[r][c] : '',
                   maxLines:2,overflow:TextOverflow.ellipsis,style: const TextStyle(fontSize:10)),
-              ))],
+              )]),
           ])),
         const SizedBox(height: 8),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween,children: [
