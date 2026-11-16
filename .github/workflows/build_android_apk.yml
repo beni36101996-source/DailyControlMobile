@@ -47,18 +47,21 @@ jobs:
           if not p.exists():
               raise SystemExit('Missing Android main manifest after flutter create')
           content = p.read_text(encoding='utf-8')
-          if 'android.permission.INTERNET' not in content:
-              manifest = re.search(r'<manifest\b[^>]*>', content, re.DOTALL)
-              if not manifest:
-                  raise SystemExit('Cannot locate opening manifest tag')
-              content = content[:manifest.end()] + (
-                  '\n    <uses-permission android:name="android.permission.INTERNET" />'
-              ) + content[manifest.end():]
-              p.write_text(content, encoding='utf-8')
+          manifest = re.search(r'<manifest\b[^>]*>', content, re.DOTALL)
+          if not manifest:
+              raise SystemExit('Cannot locate opening manifest tag')
+          for name in ('android.permission.INTERNET', 'android.permission.CAMERA'):
+              if name not in content:
+                  manifest = re.search(r'<manifest\b[^>]*>', content, re.DOTALL)
+                  content = content[:manifest.end()] + (
+                      '\n    <uses-permission android:name="' + name + '" />'
+                  ) + content[manifest.end():]
+          p.write_text(content, encoding='utf-8')
           ET.parse(p)
-          if 'android.permission.INTERNET' not in p.read_text(encoding='utf-8'):
-              raise SystemExit('INTERNET permission not applied')
-          print('Android RELEASE manifest: INTERNET permission confirmed')
+          for name in ('android.permission.INTERNET', 'android.permission.CAMERA'):
+              if name not in p.read_text(encoding='utf-8'):
+                  raise SystemExit(name + ' not applied')
+          print('Android release manifest: INTERNET and CAMERA permissions confirmed')
           PY
 
       - name: Install dependencies

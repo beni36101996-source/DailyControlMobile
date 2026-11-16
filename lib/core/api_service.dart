@@ -21,6 +21,19 @@ class DailyControlApi {
   static bool get canWrite => _connected && !_readOnly;
   static bool get canUpload => canWrite && _uploadEnabled;
   static String get endpoint => _url;
+  /// Generated only on an already connected admin phone, for in-person QR pairing.
+  /// The QR includes an API key: treat the QR image like a password.
+  static Future<String> pairingQrData() async {
+    if (!_connected || _url.isEmpty) {
+      throw StateError('Hubungkan HP admin terlebih dahulu sebelum membuat QR.');
+    }
+    final secret = await _storage.read(key: 'dcm_gateway_key');
+    if (secret == null || secret.isEmpty) {
+      throw StateError('Kunci koneksi tidak tersedia di perangkat ini.');
+    }
+    return jsonEncode({'type': 'dcmobile.gateway.v1', 'url': _url, 'key': secret});
+  }
+
   static bool get readOnly => _readOnly;
 
   static Future<void> initialize() async {
@@ -87,20 +100,53 @@ class DailyControlApi {
     final target = url ?? _url;
     final apiKey = key ?? _apiKey;
     if (!_validUrl(target) || apiKey.isEmpty) throw StateError('Gateway belum dikonfigurasi.');
-    final response = await http.post(Uri.parse(target),
-      headers: const {'Content-Type': 'text/plain; charset=utf-8'},
-      body: jsonEncode({'action': action, 'apiKey': apiKey, 'data': data}),
-    ).timeout(const Duration(seconds: 150));
-    Map<String, dynamic> result;
+    // Google Apps Script ContentService returns HTTP 302 from /exec to a
+    // one-time GET-only URL at script.googleusercontent.com. Dart does not
+    // automatically follow 302 on POST. IMPORTANT: Never resend a write POST
+    // to follow the redirect -- it can run side effects a second time.
+    final client = http.Client();
     try {
-      result = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
-    } catch (_) {
-      throw StateError('Respons Apps Script tidak valid (HTTP ${response.statusCode}). Periksa deployment /exec dan izin akses.');
+      final request = http.Request('POST', Uri.parse(target))
+        ..headers['Content-Type'] = 'text/plain; charset=utf-8'
+        ..followRedirects = false
+        ..body = jsonEncode({'action': action, 'apiKey': apiKey, 'data': data});
+      final streamed = await client.send(request).timeout(const Duration(seconds: 150));
+      var response = await http.Response.fromStream(streamed)
+          .timeout(const Duration(seconds: 150));
+      var hops = 0;
+      while (response.statusCode == 301 || response.statusCode == 302 ||
+          response.statusCode == 303) {
+        if (++hops > 3) {
+          throw StateError('Terlalu banyak pengalihan Google Apps Script. Periksa deployment Web App.');
+        }
+        final location = response.headers['location'];
+        if (location == null || location.isEmpty) {
+          throw StateError('Google memberi respons ${response.statusCode} tanpa alamat pengalihan.');
+        }
+        final next = Uri.parse(target).resolve(location);
+        if (next.scheme != 'https' || next.host != 'script.googleusercontent.com') {
+          // A redirect to Google sign-in is an authentication/deployment issue,
+          // not the normal ContentService redirect. Never forward API credentials.
+          throw StateError('Web App dialihkan ke ${next.host}, bukan respons Apps Script. '
+              'Periksa pilihan Who has access, deployment versi terbaru, dan URL /exec.');
+        }
+        // No credentials go in this GET. The one-time URL holds only the output.
+        response = await client.get(next).timeout(const Duration(seconds: 150));
+      }
+      Map<String, dynamic> result;
+      try {
+        result = Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+      } catch (_) {
+        throw StateError('Respons Web App bukan JSON (HTTP ${response.statusCode}). '
+            'Jika URL membuka halaman login, periksa izin deployment.');
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300 || result['ok'] != true) {
+        throw StateError('${result['error'] ?? 'Request gagal'} (HTTP ${response.statusCode})');
+      }
+      return result;
+    } finally {
+      client.close();
     }
-    if (response.statusCode < 200 || response.statusCode >= 300 || result['ok'] != true) {
-      throw StateError('${result['error'] ?? 'Request gagal'} (HTTP ${response.statusCode})');
-    }
-    return result;
   }
 
   static Future<Map<String, dynamic>> _call(String action, Map<String, dynamic> data) async {

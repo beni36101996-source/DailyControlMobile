@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../core/api_service.dart';
 import '../core/control_store.dart';
+import 'qr_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 /// Form konfigurasi Web App yang di-deploy pada Apps Script milik Daily Control.
 /// Key tidak dicetak ke log maupun ditampilkan kembali setelah disimpan.
@@ -58,6 +60,56 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
     }
   }
 
+  Future<void> _scanQr() async {
+    final config = await Navigator.of(context).push<GatewayQrData>(
+      MaterialPageRoute(builder: (_) => const GatewayQrScanner()),
+    );
+    if (!mounted || config == null) return;
+    setState(() {
+      url.text = config.url;
+      if (config.apiKey != null) key.text = config.apiKey!;
+    });
+    if (config.apiKey == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('URL terisi. Masukkan API key untuk menghubungkan.'),
+      ));
+      return;
+    }
+    await _save();
+  }
+
+  Future<void> _showQr() async {
+    try {
+      final payload = await DailyControlApi.pairingQrData();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('QR untuk HP operator'),
+          content: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              QrImageView(data: payload, version: QrVersions.auto, size: 245),
+              const SizedBox(height: 12),
+              const Text('Scan langsung dari HP operator. QR ini berisi kunci akses, '
+                  'jadi jangan dikirim ke grup umum atau diunggah ke internet.',
+                  textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+            ],
+          )),
+          actions: [TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Tutup'),
+          )],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
   Future<void> _disconnect() async {
     await DailyControlApi.disconnect();
     if (mounted) setState(() { status = null; problem = null; url.clear(); key.clear(); });
@@ -82,6 +134,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
           suffixIcon: IconButton(onPressed: () => setState(() => hidden = !hidden),
             icon: Icon(hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
       ),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(onPressed: busy ? null : _scanQr,
+        icon: const Icon(Icons.qr_code_scanner), label: const Text('Scan QR Koneksi')),
       const SizedBox(height: 14),
       FilledButton.icon(onPressed: busy ? null : _save,
         icon: const Icon(Icons.link), label: const Text('Hubungkan & Verifikasi')),
@@ -98,6 +153,9 @@ class _ConnectionScreenState extends State<ConnectionScreen> {
         _statusLine('Jumlah sheet', '${status?['sheetCount'] ?? '—'}'),
         _statusLine('Akses tulis', DailyControlApi.canWrite ? 'Diaktifkan server' : 'TERKUNCI (read-only)'),
         _statusLine('Upload', DailyControlApi.canUpload ? 'Diaktifkan server' : 'TERKUNCI'),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(onPressed: busy ? null : _showQr,
+          icon: const Icon(Icons.qr_code_2), label: const Text('Tampilkan QR untuk operator')),
         const SizedBox(height: 8),
         TextButton.icon(onPressed: busy ? null : _disconnect,
           icon: const Icon(Icons.logout), label: const Text('Putuskan koneksi')),
