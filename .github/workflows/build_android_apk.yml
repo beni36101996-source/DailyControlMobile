@@ -35,6 +35,32 @@ jobs:
       - name: Generate Android project
         run: flutter create --platforms=android --org com.kemuninghub .
 
+      - name: Ensure Android release has INTERNET permission
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import xml.etree.ElementTree as ET
+
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          if not p.exists():
+              raise SystemExit('Missing Android main manifest after flutter create')
+          content = p.read_text(encoding='utf-8')
+          if 'android.permission.INTERNET' not in content:
+              manifest = re.search(r'<manifest\b[^>]*>', content, re.DOTALL)
+              if not manifest:
+                  raise SystemExit('Cannot locate opening manifest tag')
+              content = content[:manifest.end()] + (
+                  '\n    <uses-permission android:name="android.permission.INTERNET" />'
+              ) + content[manifest.end():]
+              p.write_text(content, encoding='utf-8')
+          ET.parse(p)
+          if 'android.permission.INTERNET' not in p.read_text(encoding='utf-8'):
+              raise SystemExit('INTERNET permission not applied')
+          print('Android RELEASE manifest: INTERNET permission confirmed')
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
