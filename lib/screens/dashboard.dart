@@ -8,6 +8,7 @@ import '../widgets/sync_notice.dart';
 import '../core/control_store.dart';
 import '../core/api_service.dart';
 import 'details.dart';
+import 'pretrip_missing.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key, required this.onNavigate});
@@ -41,7 +42,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _refresh() {if (mounted) setState(() {});}
   @override
   void dispose() {store.removeListener(_refresh); super.dispose();}
-  void open(DetailKind kind) => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(kind: kind)));
+  void open(DetailKind kind) {
+    if (kind == DetailKind.pretrip) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const PretripMissingScreen()));
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(kind: kind)));
+    }
+  }
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
     const SyncNotice(), const SizedBox(height: 9),

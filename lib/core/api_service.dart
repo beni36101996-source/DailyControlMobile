@@ -159,6 +159,7 @@ class DailyControlApi {
   static Future<Map<String, dynamic>> get(String path, Map<String, String> query) async {
     final action = switch (path) {
       '/v1/dashboard/tasks' => 'daily-tasks',
+      '/v1/sheets/catalog' => 'sheet-catalog',
       '/v1/dashboard' => 'dashboard',
       '/v1/target-rider' => 'target-rider',
       '/v1/daily-active' => 'daily-active',
@@ -190,6 +191,8 @@ class DailyControlApi {
       'update-delivered' => 'update-delivered',
       'baseline-backlog' => 'baseline-backlog',
       'refresh-aging' => 'refresh-aging',
+      'update-target-riders' => 'update-target-riders',
+      'update-daily-active' => 'update-daily-active',
       'holiday-slot' => 'holiday-slot-save',
       _ => throw StateError('Tindakan "$path" belum terhubung/teruji. Data TIDAK disimpan.'),
     };

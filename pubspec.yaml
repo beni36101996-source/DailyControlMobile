@@ -1,7 +1,7 @@
 name: daily_control_mobile
-description: Aplikasi Android Daily Control Kemuning Riau Hub — V2 - compact operational layout, local edits + API contract.
+description: Daily Control Mobile - akses sheet operasional asli, upload, update, dan pretrip belum isi.
 publish_to: none
-version: 1.0.1+11
+version: 1.0.2+12
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
